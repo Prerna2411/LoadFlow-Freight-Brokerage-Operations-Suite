@@ -218,25 +218,7 @@ The app seeds a walkthrough-ready dataset when missing:
 - Notifications.
 - One seeded POD file.
 
-## Walkthrough Script
 
-Use this flow for a 3-5 minute recording:
-
-1. Start backend and frontend.
-2. Log in as `broker.admin@loadflow.test`.
-3. Show dashboard metrics, load board, search/filter, audit log.
-4. Create a custom role from permission checkboxes.
-5. Create a staff user.
-6. Create a new load.
-7. Assign a carrier with the carrier dropdown.
-8. Show carrier compliance flag behavior on `LF-1006`.
-9. Confirm a rate using the rate form.
-10. Open a load drawer and show status history and audit events.
-11. Log in as `driver@loadflow.test`.
-12. Show carrier-only assigned loads, accept/decline, status actions, and POD upload.
-13. Log in as `shipper@loadflow.test`.
-14. Show that shippers only see their own loads.
-15. Open `docs/ai_usage.md` and briefly explain how AI assistance was used.
 
 ## API Summary
 
