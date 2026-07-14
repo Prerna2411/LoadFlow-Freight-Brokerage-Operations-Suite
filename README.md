@@ -1,66 +1,178 @@
 # LoadFlow
 
-LoadFlow is a take-home implementation of a freight brokerage operations suite. It uses FastAPI, SQLAlchemy 2.0, SQLite, React 19, Vite, and TypeScript because that stack is quick to run locally while still making API-layer RBAC and object scoping explicit.
+LoadFlow is a freight brokerage operations suite for managing loads, carrier compliance, role-based permissions, rate confirmations, shipment status, PODs, and audit history.
 
-## What Works
+This project was built for a take-home hackathon brief. The main goal is to show a working, server-enforced RBAC system rather than a UI-only demo.
 
-- Auth for broker org users, carrier org users, and shippers.
-- Bootstrap endpoint for the first broker/carrier admin; staff are created later by users with `staff.manage`.
-- Fixed permission catalog with admin-created custom roles. Server code checks permissions, not role names.
-- Role assignment is represented by `user_roles`; `role_id` is retained only as a convenience pointer for single-role UI display.
-- API-layer org and object scoping for broker, carrier, and shipper users.
-- Permission-denied attempts are printed and stored in the audit log.
-- Load CRUD, broker search/filter, state transitions, timestamped audit entries.
-- Carrier compliance records with insurance, authority, equipment, and commodity checks.
-- Compliance flags block rate confirmation and progression beyond `Carrier Assigned` until overridden.
-- Versioned rate confirmations; the load stores the confirmed version it is using.
-- Broker, carrier, and shipper dashboards in one React app.
-- Stretch coverage: POD upload/view links, POD verification, compliance expiry alert data, audit log endpoint, audit log viewer, and load status history viewer.
+## Highlights
+
+- JWT authentication for Broker, Carrier, and Shipper accounts.
+- Broker and Carrier organizations with admin-managed staff.
+- Custom roles built from a fixed permission catalog.
+- Server-side permission checks by permission code, not role name.
+- Organization and object-level scoping.
+- Load lifecycle from `Posted` to `Invoiced/Closed`.
+- Carrier compliance checks for insurance, authority, equipment, and commodities.
+- Compliance flags that block progression past `Carrier Assigned`.
+- Versioned rate confirmations.
+- POD upload/view/verification.
+- Audit log and load status history.
+- Alembic migration scaffold for the current schema.
+- Seeded demo dataset for fast walkthroughs.
+
+## Tech Stack
+
+| Area | Stack |
+| --- | --- |
+| Frontend | React 19, Vite, TypeScript, Axios, Lucide Icons |
+| Backend | FastAPI, SQLAlchemy 2.0, Pydantic v2 |
+| Auth | JWT access tokens, Passlib bcrypt hashing |
+| Database | SQLite for local development |
+| Migrations | Alembic |
+| Tests | Pytest |
+| Uploads | Local file storage for POD files |
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Browser[React Frontend] -->|Axios + JWT| API[FastAPI API]
+    API --> Auth[Auth + JWT]
+    API --> RBAC[Permission Checker]
+    API --> Services[Domain Services]
+    Services --> DB[(SQLite)]
+    Services --> Uploads[Local POD Uploads]
+    DB --> Audit[Audit Logs]
+    DB --> History[Load Status History]
+
+    RBAC --> Permissions[Fixed Permission Catalog]
+    RBAC --> Roles[Org-defined Roles]
+    Roles --> UserRoles[User Role Assignments]
+```
+
+## Domain Flow
+
+```mermaid
+stateDiagram-v2
+    [*] --> Posted
+    Posted --> Carrier_Assigned: Broker assigns carrier
+    Carrier_Assigned --> Posted: Carrier declines
+    Carrier_Assigned --> Carrier_Assigned: Carrier accepts
+    Carrier_Assigned --> Rate_Confirmed: Broker confirms rate
+    Rate_Confirmed --> Dispatched
+    Dispatched --> In_Transit
+    In_Transit --> Delivered
+    Delivered --> POD_Verified
+    POD_Verified --> Invoiced_Closed
+
+    note right of Carrier_Assigned
+      Compliance flag blocks
+      rate confirmation and progression
+      until resolved or overridden.
+    end note
+```
+
+## RBAC Model
+
+```mermaid
+erDiagram
+    ORGANIZATIONS ||--o{ USERS : has
+    ORGANIZATIONS ||--o{ ROLES : defines
+    USERS ||--o{ USER_ROLES : assigned
+    ROLES ||--o{ USER_ROLES : maps
+    ROLES ||--o{ ROLE_PERMISSIONS : bundles
+    PERMISSIONS ||--o{ ROLE_PERMISSIONS : grants
+    ORGANIZATIONS ||--o{ LOADS : brokers
+    ORGANIZATIONS ||--o{ LOADS : carries
+    USERS ||--o{ LOADS : ships
+```
+
+The permission catalog is fixed:
+
+- `load.create`
+- `load.assign_carrier`
+- `load.override_compliance_flag`
+- `rate.confirm`
+- `load.update_status`
+- `staff.manage`
+- `pod.upload`
+
+Roles are database records containing permission bundles. The code checks permission codes, not role names. Demo roles such as Dispatcher or Driver are seed data only.
+
+## Database Tables
+
+| Table | Purpose |
+| --- | --- |
+| `organizations` | Broker and carrier organizations |
+| `users` | Broker staff, carrier staff, and shipper users |
+| `permissions` | Fixed permission catalog |
+| `roles` | Admin-created roles |
+| `role_permissions` | Permissions assigned to roles |
+| `user_roles` | Roles assigned to users |
+| `carrier_compliance` | Insurance, authority, equipment, commodities |
+| `loads` | Main shipment/load records |
+| `load_status_history` | Workflow history with timestamps and actor |
+| `rate_confirmation_versions` | Versioned broker-carrier rate agreements |
+| `pod_files` | Proof of Delivery uploads |
+| `audit_logs` | Activity and permission-denied logs |
+| `notifications` | Renewal and system notifications |
 
 ## Run Locally
 
-Backend:
+### Backend
 
 ```bash
-python -m venv .venv
-.venv\Scripts\activate
+python -m venv env
+env\Scripts\activate
 pip install -r requirements.txt
 alembic upgrade head
 uvicorn backend.app.main:app --reload
 ```
 
-If your deployment service uses `backend/` as the root directory, use `backend/requirements.txt`; it points back to the same dependency list.
+API:
 
-If Uvicorn fails during seed data with a `passlib` / `bcrypt` traceback, your environment has an incompatible `bcrypt` version. Repair it with:
-
-```bash
-pip install --force-reinstall bcrypt==4.0.1 passlib==1.7.4
+```text
+http://localhost:8000
 ```
 
-On PowerShell, if `npm run ...` is blocked by script policy, use `npm.cmd`:
+Swagger docs:
+
+```text
+http://localhost:8000/docs
+```
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm.cmd run dev
+```
+
+Frontend:
+
+```text
+http://localhost:5173
+```
+
+PowerShell may block `npm.ps1`. Use `npm.cmd` if that happens:
 
 ```bash
 npm.cmd run dev
 npm.cmd run build
 ```
 
-Frontend:
+## Reset Local Database
 
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Open `http://localhost:5173`. The API runs at `http://localhost:8000`.
-
-If you already created a local SQLite database from an earlier iteration, remove `loadflow.db` once before running so the current table names are created fresh:
+For a clean demo database:
 
 ```bash
 del loadflow.db
+alembic upgrade head
+uvicorn backend.app.main:app --reload
 ```
 
-For an existing database you want to keep, mark it as migrated instead:
+If you want to keep an existing database and only mark migrations as applied:
 
 ```bash
 alembic stamp head
@@ -68,43 +180,80 @@ alembic stamp head
 
 ## Demo Accounts
 
-All seeded users use password `Password123`. Passwords are stored only as hashes in the `users.password_hash` column.
+All seeded users use:
 
-- Broker Admin: `broker.admin@loadflow.test`
-- Broker Dispatcher: `dispatcher@loadflow.test`
-- Broker Ops Lead: `ops.lead@loadflow.test`
-- Broker Billing: `billing@loadflow.test`
-- Carrier Admin: `carrier.admin@loadflow.test`
-- Carrier Driver: `driver@loadflow.test`
-- Carrier Dispatch: `carrier.dispatch@loadflow.test`
-- Prairie POD Clerk: `prairie.pod@loadflow.test`
-- Shipper: `shipper@loadflow.test`
-- Evergreen Foods Shipper: `evergreen.foods@loadflow.test`
-- Metro Retail Shipper: `metro.retail@loadflow.test`
+```text
+Password123
+```
+
+Passwords are not stored as plain text. They are hashed in `users.password_hash`.
+
+| Account | Email |
+| --- | --- |
+| Broker Admin | `broker.admin@loadflow.test` |
+| Broker Dispatcher | `dispatcher@loadflow.test` |
+| Broker Ops Lead | `ops.lead@loadflow.test` |
+| Broker Billing | `billing@loadflow.test` |
+| Carrier Admin | `carrier.admin@loadflow.test` |
+| Carrier Driver | `driver@loadflow.test` |
+| Carrier Dispatch | `carrier.dispatch@loadflow.test` |
+| Prairie POD Clerk | `prairie.pod@loadflow.test` |
+| Shipper | `shipper@loadflow.test` |
+| Evergreen Foods Shipper | `evergreen.foods@loadflow.test` |
+| Metro Retail Shipper | `metro.retail@loadflow.test` |
 
 ## Seed Data
 
-On startup, the app seeds a richer demo dataset if those rows are missing:
+The app seeds a walkthrough-ready dataset when missing:
 
 - 3 organizations: 1 broker and 2 carriers.
 - 7 fixed permissions.
 - 6 roles across broker and carrier organizations.
 - 11 users across broker, carrier, and shipper account types.
-- 2 carrier compliance records, including one lapsed carrier for compliance-blocking demos.
-- 7 loads across Posted, Carrier Assigned, Rate Confirmed, In Transit, Delivered, and Invoiced/Closed states.
-- Multiple load status history rows, rate confirmation versions, audit logs, notifications, and one seeded POD file.
+- 2 carrier compliance records, including one lapsed carrier.
+- 7 loads across multiple lifecycle states.
+- Multiple rate confirmation versions.
+- Load status history rows.
+- Audit log rows.
+- Notifications.
+- One seeded POD file.
 
-## Bootstrap
+## Walkthrough Script
 
-The seed creates demo admins automatically. In a clean production database, create the first org admin with:
+Use this flow for a 3-5 minute recording:
 
-```bash
-curl -X POST http://localhost:8000/api/v1/bootstrap/admin ^
-  -H "Content-Type: application/json" ^
-  -d "{\"organization_name\":\"Acme Brokerage\",\"organization_type\":\"broker\",\"name\":\"Admin\",\"email\":\"admin@example.com\",\"password\":\"Password123\"}"
-```
+1. Start backend and frontend.
+2. Log in as `broker.admin@loadflow.test`.
+3. Show dashboard metrics, load board, search/filter, audit log.
+4. Create a custom role from permission checkboxes.
+5. Create a staff user.
+6. Create a new load.
+7. Assign a carrier with the carrier dropdown.
+8. Show carrier compliance flag behavior on `LF-1006`.
+9. Confirm a rate using the rate form.
+10. Open a load drawer and show status history and audit events.
+11. Log in as `driver@loadflow.test`.
+12. Show carrier-only assigned loads, accept/decline, status actions, and POD upload.
+13. Log in as `shipper@loadflow.test`.
+14. Show that shippers only see their own loads.
+15. Open `docs/ai_usage.md` and briefly explain how AI assistance was used.
 
-After that, staff accounts are invited through `POST /api/v1/users/staff` by an admin or a role with `staff.manage`.
+## API Summary
+
+| Area | Endpoints |
+| --- | --- |
+| Auth | `POST /api/v1/auth/login`, `GET /api/v1/auth/me` |
+| Bootstrap | `POST /api/v1/bootstrap/admin` |
+| Users | `POST /api/v1/users/staff`, `GET /api/v1/users/shippers` |
+| Roles | `GET /api/v1/roles`, `POST /api/v1/roles` |
+| Permissions | `GET /api/v1/permissions` |
+| Loads | `GET/POST/PATCH/DELETE /api/v1/loads` |
+| Carrier Decision | `POST /api/v1/loads/{id}/carrier-decision` |
+| Rates | `POST /api/v1/loads/{id}/rate-confirmations`, `GET /api/v1/rates/{load_id}` |
+| Compliance | `GET/POST /api/v1/compliance`, `DELETE /api/v1/compliance/{carrier_org_id}` |
+| POD | `POST /api/v1/pod/{load_id}`, `POST /api/v1/pod/{load_id}/verify` |
+| Audit | `GET /api/v1/audit`, `GET /api/v1/loads/{id}/audit` |
+| History | `GET /api/v1/loads/{id}/history` |
 
 ## Tests
 
@@ -112,17 +261,23 @@ After that, staff accounts are invited through `POST /api/v1/users/staff` by an 
 pytest backend/app/tests
 ```
 
+Frontend production build:
+
+```bash
+cd frontend
+npm.cmd run build
+```
+
 ## Assumptions
 
-- Shippers are individual accounts and have no roles.
-- Broker users can list carrier organizations for assignment, but carrier users only see their own organization and assigned loads.
-- Local POD storage is enough for the take-home; production would use object storage.
-- Demo data is seeded on app start so the reviewer can run the app immediately.
+- Shippers are individual accounts and do not have sub-roles.
+- Broker and carrier admins are seeded for demo, but first-admin bootstrap is available.
+- Local POD storage is acceptable for the take-home; production would use object storage.
+- SQLite is used for speed and portability in local review.
 
-## Incomplete / Next With More Time
+## Known Limitations
 
-- Add Alembic migration files instead of `create_all`.
-- Add richer carrier accept/decline workflow before broker rate confirmation.
-- Add signed file URLs and virus scanning for POD uploads.
-- Add full frontend forms for POD file upload and audit log exploration.
-- Add a CI pipeline and deploy manifests for Render/Vercel.
+- The app is optimized for take-home review, not production hardening.
+- Alembic migration is included, but the app still auto-initializes the SQLite database for reviewer convenience.
+- POD files are stored locally rather than in S3 or another object store.
+- Deployment files are basic and would need environment-specific hardening for production.
