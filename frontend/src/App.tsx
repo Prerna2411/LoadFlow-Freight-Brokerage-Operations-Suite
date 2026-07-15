@@ -176,6 +176,7 @@ function App() {
 
       {user.account_type === 'broker' && (
         <BrokerTools
+          user={user}
           shippers={shippers}
           carriers={orgs}
           roles={roles}
@@ -256,6 +257,7 @@ function Metric({ icon, label, value, tone }: { icon: ReactNode; label: string; 
 }
 
 function BrokerTools(props: {
+  user: User;
   shippers: Shipper[];
   carriers: Org[];
   roles: Role[];
@@ -265,6 +267,7 @@ function BrokerTools(props: {
   refresh: () => void;
   mutate: AppMutate;
 }) {
+  const can = (permission: string) => props.user.permissions.includes(permission);
   return (
     <section className="tools">
       <form onSubmit={(event) => { event.preventDefault(); props.refresh(); }} className="tool">
@@ -272,10 +275,10 @@ function BrokerTools(props: {
         <input value={props.query} onChange={(e) => props.setQuery(e.target.value)} placeholder="Reference, city, commodity" />
         <button><RefreshCw size={16} /> Search</button>
       </form>
-      <CreateLoad shippers={props.shippers} mutate={props.mutate} />
-      <CreateRole permissions={props.permissions} mutate={props.mutate} />
-      <CreateStaff roles={props.roles} mutate={props.mutate} />
-      <ComplianceForm carriers={props.carriers} mutate={props.mutate} />
+      {can('load.create') && <CreateLoad shippers={props.shippers} mutate={props.mutate} />}
+      {can('staff.manage') && <CreateRole permissions={props.permissions} mutate={props.mutate} />}
+      {can('staff.manage') && <CreateStaff roles={props.roles} mutate={props.mutate} />}
+      {can('staff.manage') && <ComplianceForm carriers={props.carriers} mutate={props.mutate} />}
     </section>
   );
 }
