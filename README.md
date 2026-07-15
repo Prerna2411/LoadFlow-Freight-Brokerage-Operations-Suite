@@ -268,16 +268,37 @@ cd frontend
 npm.cmd run build
 ```
 
-## Assumptions
 
-- Shippers are individual accounts and do not have sub-roles.
-- Broker and carrier admins are seeded for demo, but first-admin bootstrap is available.
-- Local POD storage is acceptable for the take-home; production would use object storage.
-- SQLite is used for speed and portability in local review.
+## Assumptions, Incomplete Work, and Next Steps
 
-## Known Limitations
+### Assumptions Made
 
-- The app is optimized for take-home review, not production hardening.
-- Alembic migration is included, but the app still auto-initializes the SQLite database for reviewer convenience.
-- POD files are stored locally rather than in S3 or another object store.
-- Deployment files are basic and would need environment-specific hardening for production.
+- Shippers are individual/business accounts without sub-roles, as specified in the brief.
+- Broker and Carrier accounts are organizations, and staff users belong to exactly one organization.
+- The fixed permission catalog is controlled by the application, while roles are configurable database records created by admins.
+- Demo data is seeded automatically so reviewers can run and evaluate the app quickly.
+- SQLite is acceptable for local review and take-home demonstration.
+- POD files are stored locally for the demo instead of using object storage.
+- Demo users use known seeded passwords for reviewer convenience; in production, users would receive unique invite or password-reset links.
+- Compliance checks are based on stored insurance expiry, authority status, approved equipment, and approved commodity values.
+
+### What Is Incomplete
+
+- Deployment hardening is minimal; production environment settings, logging, and secrets management would need more work.
+- POD upload uses local storage, not cloud object storage such as S3.
+- The carrier accept/decline workflow is implemented, but could be expanded with tender expiration, rejection reasons, and broker re-tendering history.
+- Notifications are seeded and modeled, but there is no full notification center UI yet.
+- The frontend is functional for demo workflows, but some forms could be split into dedicated pages for larger production use.
+- Test coverage focuses on core flows and should be expanded for every permission and object-scope edge case.
+- Alembic has an initial migration, but future schema changes would need a fuller migration workflow.
+
+### What I Would Do With More Time
+
+- Add invite emails and password-reset flows for staff onboarding.
+- Move POD files to S3 or another object storage service with signed URLs.
+- Add a full notification center for compliance renewals, blocked loads, and shipment exceptions.
+- Add stronger audit filtering by user, entity, date range, and action type.
+- Add automated CI for backend tests, frontend build, linting, and migration checks.
+- Add more granular carrier workflows, including accept/decline reasons, tender expiration, and re-tendering.
+- Add richer dashboards with aging loads, revenue totals, lane performance, and compliance risk summaries.
+- Add production-ready deployment configuration for Render, Vercel, and managed Postgres.
