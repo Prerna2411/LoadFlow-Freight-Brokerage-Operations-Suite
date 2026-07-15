@@ -251,9 +251,7 @@ npm.cmd run build
 ```
 
 
-## Assumptions, Incomplete Work, and Next Steps
-
-### Assumptions Made
+## ### Assumptions Made
 
 - Shippers are individual/business accounts without sub-roles, as specified in the brief.
 - Broker and Carrier accounts are organizations, and staff users belong to exactly one organization.
